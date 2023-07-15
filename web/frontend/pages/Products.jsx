@@ -8,7 +8,8 @@ import {
   Link,
   Text,
   Form, FormLayout, TextField, Button, LegacyCard, DataTable, IndexTable, useIndexResourceState,
-  Modal, SkeletonBodyText, Select, ButtonGroup, Icon
+  Modal, SkeletonBodyText, Select, ButtonGroup, Icon,
+  Pagination, Thumbnail, Badge
 } from "@shopify/polaris";
 import {CirclePlusMinor, DeleteMajor, MobileCancelMajor, CircleMinusMinor} from '@shopify/polaris-icons';
 import {useState, useCallback, useEffect} from 'react';
@@ -17,7 +18,7 @@ import { useTranslation, Trans } from "react-i18next";
 import {HorizontalGrid} from '@shopify/polaris';
 
 import { Header } from "../components";
-import { BASE_URL, storeURL } from '../constants';
+import { BASE_URL, storeURL, noImageSRC } from '../constants';
 const ShopifyApp = window['ShopifyApp'];
 
 import createApp from "@shopify/app-bridge";
@@ -57,7 +58,16 @@ export default function Products() {
   ];
 
   console.log("kd current", ShopifyApp);
+
+  const [HasPrevious, setHasPrevious] = useState(false);
+  const [HasNext, setHasNext] = useState(false);
+
+  const [PreviousId, setPreviousId] = useState(0);  
+  const [NextId, setNextId] = useState(0);
   
+  const [SinceIds, setSinceIds] = useState([]);
+  const [EndCursor, setEndCursor] = useState('');
+  const [StartCursor, setStartCursor] = useState('');
 
   const [IsSavingInformation, setIsSavingInformation] = useState(false);
 
@@ -65,24 +75,102 @@ export default function Products() {
     // {id: 0, width: '', height: '', length: '', weight: ''},
   ]);
 
-  console.log("storeURL()", storeURL());
-  useEffect(()=>{
-      fetch('/api/kd/products?shop='+_s, {
-        method: 'get',
-      })
-      .then(response2 => response2.json())
-      .then((response2)=>{
-  
-        if(response2.success){
-          setIsConnect(response2.data.is_connect);
-          if(!response2.data.is_connect){
-            setIsConnectError("Please connect your account to use the App.");
-          }else{
-            setProducts(response2.data.products);
+  // console.log("storeURL()", storeURL());
+  const fetchProducts = (_p={}) => {
+    var _url = `/api/kd/products?shop=${_s}`;
+    if(typeof _p.EndCursor !== 'undefined'){
+      _url += `&endCursor=${EndCursor}`;
+    }
+    if(typeof _p.StartCursor !== 'undefined'){
+      _url += `&startCursor=${StartCursor}`;
+    }
+    fetch(_url, {
+      method: 'get',
+    })
+    .then(response2 => response2.json())
+    .then((response2)=>{
+      setIsConnect(true);
+      if(typeof response2.data != 'undefined'){
+        if(typeof response2.data.products != 'undefined'){
+          console.log("response2.data.products.pageInfo.endCursor", response2.data.products.pageInfo.endCursor)
+          if(typeof response2.data.products.pageInfo != 'undefined'){
+            if(typeof response2.data.products.pageInfo.endCursor != 'undefined'){
+              if(response2.data.products.pageInfo.hasNextPage){
+                setEndCursor(response2.data.products.pageInfo.endCursor);
+              }else{
+                setEndCursor('');
+              }
+            }else{
+              setEndCursor('');
+            }
+            if(typeof response2.data.products.pageInfo.startCursor != 'undefined'){
+              if(response2.data.products.pageInfo.hasPreviousPage){
+                setStartCursor(response2.data.products.pageInfo.startCursor);
+              }else{
+                setStartCursor('');
+              }
+            }else{
+              setStartCursor('');
+            }
           }
-        }
-      });
-  }, []);  
+
+          if(typeof response2.data.products.edges != 'undefined'){
+            var _Products = [];
+            response2.data.products.edges.map((row, i)=>{
+              var _id = row.node.id;
+              _id = _id.replace("gid://shopify/Product/", "");
+              
+              var _image = row?.node?.images?.edges[0]?.node?.src;
+              if(!_image){
+                _image = noImageSRC;
+              }
+              _Products.push({id: _id, photo: _image, name: row.node.title, vendor: row.node.vendor, status: row.node.status});
+            });
+            setProducts(_Products);
+            // console.log(98, response2.data.products.edges);
+          }
+        } // end if
+
+      }
+      
+      // if(response2.success){
+        // setIsConnect(response2.data.is_connect);
+        // if(!response2.data.is_connect){
+        //   setIsConnectError("Please connect your account to use the App.");
+        // }else{
+          // "id"=>$row->id,
+          // "photo"=>@$row->image->src,
+          // "name"=>$row->title,
+          // "vendor"=>$row->vendor,
+          // "status"=>$row->status,
+          
+          // setProducts(response2.data.products);
+        // }
+      // }
+    });
+  } // END fetchProducts
+
+  // useEffect(()=>{
+  //   fetchProducts();
+  //     // fetch('/api/kd/products?shop='+_s, {
+  //     //   method: 'get',
+  //     // })
+  //     // .then(response2 => response2.json())
+  //     // .then((response2)=>{
+  
+  //     //   if(response2.success){
+  //     //     setIsConnect(response2.data.is_connect);
+  //     //     if(!response2.data.is_connect){
+  //     //       setIsConnectError("Please connect your account to use the App.");
+  //     //     }else{
+  //     //       setProducts(response2.data.products);
+  //     //     }
+  //     //   }
+  //     // });
+  // }, []);  
+  useEffect(()=>{
+      fetchProducts();
+  }, []);
 
   const resourceName = {
     singular: 'product',
@@ -148,7 +236,7 @@ export default function Products() {
   
   useEffect(() => {
     if(ProductId){
-      fetch('/api/kd/product/' + ProductId+'?shop='+_s, {
+      fetch(`/api/kd/product/${ProductId}?shop=${_s}`, {
         method: 'get',
       })
       .then(response2 => response2.json())
@@ -238,13 +326,19 @@ export default function Products() {
   }
 
   const rowMarkup = Products.map(
-    ({id, name, vendor, status}, index) => (
+    ({id, photo, name, vendor, status}, index) => (
       <IndexTable.Row
         id={id}
         key={id}
         selected={selectedResources.includes(id)}
         position={index}
       >
+        <IndexTable.Cell>
+          <Thumbnail
+            source={photo}
+            alt="Photo"
+          />
+        </IndexTable.Cell>
         <IndexTable.Cell>
           <Link
             dataPrimaryLink
@@ -260,7 +354,15 @@ export default function Products() {
           </Link>
         </IndexTable.Cell>
         <IndexTable.Cell>{vendor}</IndexTable.Cell>
-        <IndexTable.Cell>{status}</IndexTable.Cell>
+        <IndexTable.Cell>
+          {
+            (status=='ACTIVE') ? (
+              <Badge status="success">{status}</Badge>
+            ) : (
+              <Badge >{status}</Badge>
+            )
+          }
+        </IndexTable.Cell>
       </IndexTable.Row>
     ),
   );
@@ -283,6 +385,7 @@ export default function Products() {
                 open={ActiveModal}
                 onClose={()=>{ 
                   setActiveModal(false);
+                  setPackageDimensions([]);
                   // setProductId(0);
                 }}
                 title={(Product?.title) ? Product?.title : ' '}
@@ -417,23 +520,38 @@ export default function Products() {
 
               {
                 (IsConnect) ? (
-                  <IndexTable
-                    fullWidth
-                    resourceName={resourceName}
-                    itemCount={Products.length}
-                    selectedItemsCount={
-                      allResourcesSelected ? 'All' : selectedResources.length
-                    }
-                    onSelectionChange={handleSelectionChange}
-                    headings={[
-                      {title: 'Name'},
-                      {title: 'Vendor'},
-                      {title: 'Status'},
-                    ]}
-                    selectable={false}
-                  >
-                    {rowMarkup}
-                  </IndexTable>
+                  <Page  title="Products" > 
+                    <IndexTable
+                      fullWidth
+                      resourceName={resourceName}
+                      itemCount={Products.length}
+                      selectedItemsCount={
+                        allResourcesSelected ? 'All' : selectedResources.length
+                      }
+                      onSelectionChange={handleSelectionChange}
+                      headings={[
+                        {title: 'Photo'},
+                        {title: 'Name'},
+                        {title: 'Vendor'},
+                        {title: 'Status'},
+                      ]}
+                      selectable={false}
+                    >
+                      {rowMarkup}
+                    </IndexTable>
+                    <div style={{marginTop:30}}>
+                      <Pagination
+                        hasPrevious={(StartCursor) ? true : false}
+                        onPrevious={() => {
+                          fetchProducts({StartCursor:StartCursor});
+                        }}
+                        hasNext={(EndCursor) ? true : false}
+                        onNext={() => {
+                          fetchProducts({EndCursor:EndCursor});
+                        }}
+                      />
+                    </div>
+                  </Page>
                 ) : null
               }
 

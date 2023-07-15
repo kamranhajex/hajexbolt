@@ -60,7 +60,7 @@ export default function HomePage(props) {
 
   const handleSubmit = async() => {
     setIsLoading(true);
-    console.log("kd token", storeURL());
+    // console.log("kd token", storeURL());
     var formData = new FormData();
     formData.append("email", Email);
     formData.append("password", Password);
@@ -95,6 +95,7 @@ export default function HomePage(props) {
         return;
       }
       if(response.status==true){
+        setIsLoading(true);
         // create session
         var formData2 = new FormData();
         formData2.append("token", response.data.token);
@@ -107,10 +108,11 @@ export default function HomePage(props) {
         })
         .then(response2 => response2.json())
         .then((response2)=>{
+          setIsLoading(true);
           // sessionStorage.setItem("token", response.data.token);
           // sessionStorage.setItem("user", JSON.stringify(response.data.user));
           setSuccessMsg(response.message);
-          // window.location.reload(false);
+          window.location.reload();
           return;
         });
 
@@ -125,8 +127,7 @@ export default function HomePage(props) {
     })
     .then(response2 => response2.json())
     .then((response2)=>{
-      setIsLoading(false);
-      window.location.reload(false);
+      window.location.reload();
       return;
     });
   }
@@ -135,7 +136,7 @@ export default function HomePage(props) {
     <Page fullWidth  >
       <TitleBar title={t("HomePage.title")} primaryAction={null} />
       <Layout>
-        <HorizontalGrid gap="4" columns={2}>
+        <HorizontalGrid columns={['oneThird', 'twoThirds']} >
           <Layout.Section>
             <Header />
           </Layout.Section>

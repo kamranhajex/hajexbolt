@@ -233,7 +233,7 @@ export default function PickupLocation() {
   return (
     <Page fullWidth>
       <Layout>
-        <HorizontalGrid gap="4" columns={2}>
+        <HorizontalGrid  columns={['oneThird', 'twoThirds']} >
           <Layout.Section>
             <Header />
           </Layout.Section>  
@@ -263,7 +263,7 @@ export default function PickupLocation() {
                       autoComplete="off"
                     /> */}
 
-                    {console.log("kd Country", Country)}
+                    {/* {console.log("kd Country", Country)} */}
                     <Autocomplete
                       loading={IsLoadingCountries}
                       options={CountriesFilter}
